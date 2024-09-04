@@ -1,0 +1,2 @@
+style={{ maxHeight: '48px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+
