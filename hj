@@ -1,0 +1,17 @@
+from django.contrib import admin
+from .models import FQDNRequest
+
+@admin.register(FQDNRequest)
+class FQDNRequestAdmin(admin.ModelAdmin):
+    list_display = ('device_name', 'port', 'protocol', 'method', 'dataType')
+    search_fields = ('device_name', 'protocol', 'method')
+    list_filter = ('protocol', 'method', 'dataType')
+
+
+
+from .models import FQDNRequest
+from .serializers import FQDNRequestSerializer
+
+class FQDNRequestViewSet(viewsets.ModelViewSet):
+    queryset = FQDNRequest.objects.all()
+    serializer_class = FQDNRequestSerializer
