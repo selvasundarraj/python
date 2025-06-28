@@ -1,17 +1,180 @@
-from django.contrib import admin
-from .models import FQDNRequest
+import React, { useEffect, useState } from 'react';
+import { Button, Form, Table, Row } from 'antd';
+import axios from 'axios';
 
-@admin.register(FQDNRequest)
-class FQDNRequestAdmin(admin.ModelAdmin):
-    list_display = ('device_name', 'port', 'protocol', 'method', 'dataType')
-    search_fields = ('device_name', 'protocol', 'method')
-    list_filter = ('protocol', 'method', 'dataType')
+const Fqdn = (props) => {
+  const [dataSource, setDataSource] = useState([]);
+  const [selectedDrilldownKey, setSelectedDrilldownKey] = useState(null);
+  const [drilldownData, setDrilldownData] = useState([]);
+  const [drilldownColumnKey, setDrilldownColumnKey] = useState('');
 
+  const maxheight = '30px';
 
+  const getColumnFilters = (data, key) => {
+    const uniqueValues = [...new Set(data.map(item => item[key]))];
+    return uniqueValues.map(value => ({
+      text: value,
+      value: value,
+    }));
+  };
 
-from .models import FQDNRequest
-from .serializers import FQDNRequestSerializer
+  const handleDrilldown = (columnKey, value) => {
+    const filtered = dataSource.filter(item => item[columnKey] === value);
+    setSelectedDrilldownKey(value);
+    setDrilldownData(filtered);
+    setDrilldownColumnKey(columnKey);
+  };
 
-class FQDNRequestViewSet(viewsets.ModelViewSet):
-    queryset = FQDNRequest.objects.all()
-    serializer_class = FQDNRequestSerializer
+  const defaultColumns = [
+    {
+      title: 'device_name',
+      dataIndex: "device_name",
+      width: '30%',
+      filters: getColumnFilters(dataSource, "device_name"),
+      onFilter: (value, record) => record["device_name"] === value,
+      editable: false,
+      ellipsis: true,
+      render: (text) => (
+        <div style={{ maxHeight: maxheight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span>{text}</span>
+        </div>
+      )
+    },
+    {
+      title: 'port',
+      dataIndex: "port",
+      filters: getColumnFilters(dataSource, "port"),
+      onFilter: (value, record) => record["port"] === value,
+      editable: false,
+      ellipsis: true,
+      render: (text) => (
+        <div style={{ maxHeight: maxheight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span>{text}</span>
+        </div>
+      )
+    },
+    {
+      title: 'device_type',
+      dataIndex: "device_type",
+      filters: getColumnFilters(dataSource, "device_type"),
+      onFilter: (value, record) => record["device_type"] === value,
+      editable: false,
+      ellipsis: true,
+      render: (text) => (
+        <div style={{ maxHeight: maxheight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span>{text}</span>
+        </div>
+      )
+    },
+    {
+      title: 'config_captured_at',
+      dataIndex: "config_captured_at",
+      filters: getColumnFilters(dataSource, "config_captured_at"),
+      onFilter: (value, record) => record["config_captured_at"] === value,
+      editable: false,
+      ellipsis: true,
+      render: (text) => (
+        <div style={{ maxHeight: maxheight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span>{text}</span>
+        </div>
+      )
+    },
+    {
+      title: 'location',
+      dataIndex: "location",
+      filters: getColumnFilters(dataSource, "location"),
+      onFilter: (value, record) => record["location"] === value,
+      editable: false,
+      ellipsis: true,
+      render: (text) => (
+        <div style={{ maxHeight: maxheight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span>{text}</span>
+        </div>
+      )
+    },
+    {
+      title: 'vip',
+      dataIndex: "vip",
+      editable: false,
+      ellipsis: true,
+      render: (text) => (
+        <Button type="link" onClick={() => handleDrilldown('vip', text)}>
+          {text}
+        </Button>
+      )
+    },
+    {
+      title: 'pool_name',
+      dataIndex: "pool_name",
+      editable: false,
+      ellipsis: true,
+      render: (text) => (
+        <Button type="link" onClick={() => handleDrilldown('pool_name', text)}>
+          {text}
+        </Button>
+      )
+    },
+    {
+      title: 'irules',
+      dataIndex: "irules",
+      editable: false,
+      ellipsis: true,
+      render: (text) => (
+        <div style={{ maxHeight: maxheight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span>{text}</span>
+        </div>
+      )
+    }
+  ];
+
+  useEffect(() => {
+    fetchCluster();
+  }, []);
+
+  const fetchCluster = () => {
+    axios.get(`http://127.0.0.1:8000/inventory/fqdn/?device_name=${props?.fqdn}&port=${props?.port}&limit=1000&offset=0&page=1`)
+      .then(res => {
+        setDataSource(res.data.results);
+      })
+      .catch(err => {
+        console.error('Error fetching data:', err);
+      });
+  };
+
+  return (
+    <>
+      <div>
+        <Row justify={'space-between'}>
+          <Row justify={'start'}><h3>Psaas Port data ({dataSource.length})</h3></Row>
+        </Row>
+
+        <Table
+          rowClassName={() => 'editable-row'}
+          bordered
+          dataSource={dataSource}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: "max-content" }}
+          size="small"
+          columns={defaultColumns}
+          rowKey={(record, index) => index}
+        />
+
+        {selectedDrilldownKey && (
+          <div style={{ marginTop: 30 }}>
+            <h4>Drilldown: Devices with {drilldownColumnKey} = {selectedDrilldownKey}</h4>
+            <Table
+              dataSource={drilldownData}
+              columns={defaultColumns}
+              pagination={{ pageSize: 5 }}
+              scroll={{ x: 'max-content' }}
+              size="small"
+              rowKey={(record, index) => `drilldown-${index}`}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
+
+export default Fqdn;
