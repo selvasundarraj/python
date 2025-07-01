@@ -1,10 +1,9 @@
 import React from 'react';
-import { Table, Typography } from 'antd';
-import './diff-table.css';
+import { Table, Typography, Card } from 'antd';
 
 const { Title } = Typography;
 
-const fieldsToShow = [
+const fieldsToCompare = [
   'device_name',
   'port',
   'device_type',
@@ -15,73 +14,65 @@ const fieldsToShow = [
   'irules'
 ];
 
-const TransposedFqdnGrouped = ({ data }) => {
-  if (!data || data.length === 0) return null;
+function resolveValue(val: any) {
+  if (val === null || val === undefined) return '-';
+  if (typeof val === 'object') {
+    if (Array.isArray(val)) {
+      if (val.length === 0) return '-';
+      if (val[0]?.value) return val[0].value;
+      return val[0];
+    }
+    if (val.value) return val.value;
+    return JSON.stringify(val);
+  }
+  return val.toString();
+}
 
-  // Group by device_type
-  const grouped = data.reduce((acc, item) => {
-    const type = item.device_type || 'Unknown';
-    acc[type] = acc[type] || [];
-    acc[type].push(item);
-    return acc;
-  }, {});
+const FieldWiseFqdnTables = ({ data }) => {
+  if (!data || data.length === 0) return <p>No data to display.</p>;
+
+  // Extract FQDN keys from vip.value
+  const fqdnKeys = data.map(item => resolveValue(item.vip));
 
   return (
-    <>
-      {Object.entries(grouped).map(([deviceType, items]) => {
-        // extract FQDNs (using vip.value)
-        const fqdnKeys = [...new Set(items.map(i => i.vip?.value || i.vip))];
-
-        const rows = fieldsToShow.map(field => {
-          const row = { field };
-          fqdnKeys.forEach(fqdn => {
-            const match = items.find(i => (i.vip?.value || i.vip) === fqdn);
-            row[fqdn] = match ? (match[field]?.value || match[field]) : '-';
-          });
-          return row;
+    <div className="space-y-8">
+      {fieldsToCompare.map(field => {
+        const row = { field };
+        fqdnKeys.forEach((fqdn, idx) => {
+          const value = resolveValue(data[idx][field]);
+          row[fqdn] = value;
         });
 
         const columns = [
           {
             title: 'Field',
             dataIndex: 'field',
-            fixed: 'left',
-            render: text => <b>{text}</b>
+            render: () => <b>{field}</b>,
+            fixed: 'left'
           },
           ...fqdnKeys.map(fqdn => ({
             title: fqdn,
             dataIndex: fqdn,
-            render: (text, row) => {
-              const values = fqdnKeys.map(k => row[k]);
-              const isDiff = new Set(values).size > 1;
-              return (
-                <span className={isDiff ? 'diff-cell' : ''}>{text}</span>
-              );
-            }
+            render: text => <span>{text}</span>
           }))
         ];
 
         return (
-          <div key={deviceType} style={{ marginBottom: 40 }}>
-            <Title level={4}>{deviceType}</Title>
+          <Card key={field} bordered>
+            <Title level={4}>{field} Comparison</Title>
             <Table
-              dataSource={rows}
+              dataSource={[row]}
               columns={columns}
               pagination={false}
               rowKey="field"
               bordered
               scroll={{ x: 'max-content' }}
             />
-          </div>
+          </Card>
         );
       })}
-    </>
+    </div>
   );
 };
 
-export default TransposedFqdnGrouped;
-
-.diff-cell {
-  background-color: #ffe2e2;
-  font-weight: 500;
-}
+export default FieldWiseFqdnTables;
