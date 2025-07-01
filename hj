@@ -80,3 +80,8 @@ const TransposedFqdnGrouped = ({ data }) => {
 };
 
 export default TransposedFqdnGrouped;
+
+.diff-cell {
+  background-color: #ffe2e2;
+  font-weight: 500;
+}
