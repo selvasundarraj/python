@@ -1,5 +1,6 @@
 import React from 'react';
 import { Table, Typography, Card } from 'antd';
+import './diff-table.css'; // We'll define a class in CSS
 
 const { Title } = Typography;
 
@@ -28,10 +29,27 @@ function resolveValue(val: any) {
   return val.toString();
 }
 
+function getWordSpans(base: string, comparison: string) {
+  const baseWords = base.split(/[\s,]+/);
+  const compWords = comparison.split(/[\s,]+/);
+
+  return baseWords.map((word, idx) => {
+    const isSame = word === compWords[idx];
+    return (
+      <span
+        key={idx}
+        className={isSame ? '' : 'highlight-diff'}
+        style={{ marginRight: '4px' }}
+      >
+        {word}
+      </span>
+    );
+  });
+}
+
 const FieldWiseFqdnTables = ({ data }) => {
   if (!data || data.length === 0) return <p>No data to display.</p>;
 
-  // Extract FQDN keys from vip.value
   const fqdnKeys = data.map(item => resolveValue(item.vip));
 
   return (
@@ -43,17 +61,23 @@ const FieldWiseFqdnTables = ({ data }) => {
           row[fqdn] = value;
         });
 
+        const reference = fqdnKeys.length > 0 ? row[fqdnKeys[0]] : '';
+
         const columns = [
           {
             title: 'Field',
             dataIndex: 'field',
             render: () => <b>{field}</b>,
-            fixed: 'left'
+            fixed: 'left',
+            width: '20%'
           },
           ...fqdnKeys.map(fqdn => ({
             title: fqdn,
             dataIndex: fqdn,
-            render: text => <span>{text}</span>
+            width: '20%',
+            render: (text) => {
+              return <div>{getWordSpans(text, reference)}</div>;
+            }
           }))
         ];
 
