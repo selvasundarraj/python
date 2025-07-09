@@ -3,9 +3,7 @@ import { Table, Typography, Card } from 'antd';
 
 const { Title } = Typography;
 
-const LTMfieldsToCompare = [
-  'profiles',
-];
+const LTMfieldsToCompare = ['profiles'];
 
 const ASMfieldsToCompare = [
   'config_captured_at',
@@ -16,23 +14,19 @@ const ASMfieldsToCompare = [
   'host_header_data_groupt',
   'host_header_values',
   'persistance_profile_name',
-  'security_logging_profiles'
+  'security_logging_profiles',
 ];
 
 function resolveValue(val) {
   if (val === null || val === undefined) return '-';
   if (typeof val === 'object') {
     if (Array.isArray(val)) {
-      if (val.length === 0) return '-';
-      if (val[0]?.data) return val[0].data;
-      if (val[0]?.value) return val[0].value;
-      return val[0];
+      return val.length ? val.map(v => resolveValue(v)).flat() : ['-'];
     }
-    if (val.data) return val.data;
+    if (val.data) return resolveValue(val.data);
     if (val.value) return [val.value];
-    return JSON.stringify(val);
+    return [JSON.stringify(val)];
   }
-
   return [val.toString()];
 }
 
@@ -57,7 +51,12 @@ function getWordSpans(base, comparison, index = 0) {
 const TransposedFqdnGrouped = ({ selectedVal, data }) => {
   if (!data || data.length === 0) return <p>No data to display.</p>;
 
-  const fqdnKeys = data.map(item => item.device_name);
+  const isLTM = selectedVal === 'LTM';
+  const fieldsToCompare = isLTM ? LTMfieldsToCompare : ASMfieldsToCompare;
+
+  // Filter device names based on selected type
+  const filteredDevices = data.filter(d => d.device_type === selectedVal);
+  const fqdnKeys = filteredDevices.map(item => item.device_name);
 
   function df(rowdata, addVal = '') {
     const columns = [
@@ -65,18 +64,22 @@ const TransposedFqdnGrouped = ({ selectedVal, data }) => {
         title: 'Field',
         dataIndex: 'field',
         render: () => <b>{rowdata.field}</b>,
-        fixed: 'left'
+        fixed: 'left',
       },
       ...fqdnKeys.map(fqdn => ({
         title: fqdn,
-        width: "20%",
+        width: '20%',
         dataIndex: fqdn,
-        render: text => (
+        render: text =>
           Array.isArray(text)
-            ? text.map((line, i) => <>{getWordSpans(line, rowdata[fqdn], i)}<br /></>)
-            : getWordSpans(text, [rowdata[fqdn]])
-        )
-      }))
+            ? text.map((line, i) => (
+                <>
+                  {getWordSpans(line, rowdata[fqdn], i)}
+                  <br />
+                </>
+              ))
+            : getWordSpans(text, [rowdata[fqdn]]),
+      })),
     ];
 
     return (
@@ -98,28 +101,36 @@ const TransposedFqdnGrouped = ({ selectedVal, data }) => {
 
   return (
     <div className="space-y-8">
-      {(selectedVal === 'LTM' ? LTMfieldsToCompare : ASMfieldsToCompare).map(field => (
+      {fieldsToCompare.map(field => (
         <React.Fragment key={field}>
           {(() => {
             const tables = [];
             const row = { field };
 
             fqdnKeys.forEach((fqdn, idx) => {
-              const tableRowVal = data[idx][field];
+              const device = filteredDevices[idx];
+              const tableRowVal = device?.[field];
 
               if (
                 typeof tableRowVal === 'object' &&
                 ['PROFILES', 'IRULES'].includes(field.toUpperCase())
               ) {
                 if (Array.isArray(tableRowVal)) {
-                  tableRowVal.forEach((RValue, index) => {
+                  // Loop through each nested profile/irule and normalize across all devices
+                  const maxItems = Math.max(
+                    ...filteredDevices.map(d => (d[field] || []).length)
+                  );
+
+                  for (let i = 0; i < maxItems; i++) {
                     const row2 = { field };
                     fqdnKeys.forEach((fqdn2, idx2) => {
-                      const val = data[idx2][field][index];
+                      const val = filteredDevices[idx2][field]?.[i];
                       row2[fqdn2] = resolveValue(val);
                     });
-                    tables.push(df(row2, RValue?.value || `Item ${index + 1}`));
-                  });
+                    tables.push(
+                      df(row2, tableRowVal[i]?.value || `Item ${i + 1}`)
+                    );
+                  }
                 }
               } else {
                 const value = resolveValue(tableRowVal);
