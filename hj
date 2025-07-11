@@ -30,23 +30,38 @@ const ASMfieldsToCompare = [
   'security_logging_profiles'
 ];
 
-// Keeps indentation and formats multiline objects into lines
 function resolveValue(val) {
   if (val === null || val === undefined) return ['-'];
   if (typeof val === 'object') {
-    if (Array.isArray(val)) {
-      return val.flatMap(v => resolveValue(v));
-    }
-    if (val.data) {
-      return val.data.flatMap(line => line.split('\n'));
-    }
+    if (Array.isArray(val)) return val.flatMap(v => resolveValue(v));
+    if (val.data) return val.data.flatMap(line => line.split('\n'));
     if (val.value) return [val.value];
     return [JSON.stringify(val)];
   }
   return val.toString().split('\n');
 }
 
-// Creates rows for each line of config
+function getWordSpans(baseLine, comparisonList, lineIndex = 0) {
+  return comparisonList.map((word, idx) => {
+    if (idx !== lineIndex) return null;
+    const isSame = word === baseLine;
+    return (
+      <span
+        key={idx}
+        className={isSame ? 'greenshade' : 'highlightdiff'}
+        style={{
+          display: 'inline-block',
+          margin: 0,
+          whiteSpace: 'pre-wrap',
+          borderBottom: '1px solid #ccc',
+        }}
+      >
+        {baseLine}
+      </span>
+    );
+  });
+}
+
 function expandRowData(rowdata, fqdnKeys) {
   const maxLines = Math.max(
     ...fqdnKeys.map(fqdn => {
@@ -83,22 +98,26 @@ const TransposedFqdnGrouped = ({ selectedVal, data }) => {
   const fqdnKeys = filteredDevices.map(item => item.device_name);
 
   function df(rowdata, titleSuffix = '') {
+    const reference = fqdnKeys.length > 0 ? rowdata[fqdnKeys[0]] : [];
+
     const columns = [
       {
         title: 'Field',
         dataIndex: 'field',
         fixed: 'left',
-        width: 250,
+        width: 260,
         render: text => <pre style={{ margin: 0 }}>{text}</pre>
       },
-      ...fqdnKeys.map(fqdn => ({
+      ...fqdnKeys.map((fqdn, index) => ({
         title: fqdn,
         dataIndex: fqdn,
-        render: val => (
-          <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-            {val || ''}
-          </pre>
-        )
+        render: (val, row, rowIndex) => {
+          return (
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+              {getWordSpans(val, reference, rowIndex)}
+            </pre>
+          );
+        }
       }))
     ];
 
@@ -115,6 +134,7 @@ const TransposedFqdnGrouped = ({ selectedVal, data }) => {
           pagination={false}
           rowKey={(record, index) => `${rowdata.field}-${index}`}
           bordered
+          size="small"
           scroll={{ x: 'max-content' }}
         />
       </Card>
@@ -131,11 +151,10 @@ const TransposedFqdnGrouped = ({ selectedVal, data }) => {
 
             fqdnKeys.forEach((fqdn, idx) => {
               const device = filteredDevices[idx];
-              const tableRowVal = device?.[field];
-              row[fqdn] = resolveValue(tableRowVal);
+              const val = device?.[field];
+              row[fqdn] = resolveValue(val);
             });
 
-            // Special case for known multi-item arrays
             const sampleVal = filteredDevices[0]?.[field];
             const isMultiItem = ['profiles', 'irules', 'security_logging_profiles'].includes(field.toLowerCase());
 
