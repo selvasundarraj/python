@@ -1,18 +1,4 @@
-function resolveValue(val) {
-  if (val === null || val === undefined) return '-';
-  if (typeof val === 'object') {
-    if (Array.isArray(val)) {
-      return val.map(v => resolveValue(v)).join(' ').trim();
-    }
-    if (val.data) {
-      return val.data
-        .flatMap(line => line.split('\n'))
-        .map(line => line.trim())
-        .filter(Boolean)
-        .join(' ');
-    }
-    if (val.value) return val.value.toString().trim();
-    return JSON.stringify(val);
-  }
-  return val.toString().split('\n').map(line => line.trim()).filter(Boolean).join(' ');
+/* style.css or in your component's style tag */
+.ant-table-cell {
+  background-color: #e6ffed !important; /* light green */
 }
