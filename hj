@@ -1,4 +1,9 @@
-/* style.css or in your component's style tag */
+/* Make all table row borders thicker */
 .ant-table-cell {
-  background-color: #e6ffed !important; /* light green */
+  border-bottom: 2px solid #b7eb8f !important; /* You can adjust thickness and color */
+}
+
+/* Optional: also make header border thick */
+.ant-table-thead > tr > th {
+  border-bottom: 2px solid #73d13d !important;
 }
