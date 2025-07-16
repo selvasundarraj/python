@@ -1,9 +1,4 @@
-/* Make all table row borders thicker */
-.ant-table-cell {
-  border-bottom: 2px solid #b7eb8f !important; /* You can adjust thickness and color */
-}
-
-/* Optional: also make header border thick */
-.ant-table-thead > tr > th {
-  border-bottom: 2px solid #73d13d !important;
+function isSafe(text) {
+  const forbiddenWords = /\b(create|drop|creat)\b/i;
+  return !forbiddenWords.test(text);
 }
