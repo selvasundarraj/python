@@ -1,4 +1,75 @@
-function isSafe(text) {
-  const forbiddenWords = /\b(create|drop|creat)\b/i;
-  return !forbiddenWords.test(text);
-}
+from django.db import models
+
+class FQDNPortMapping(models.Model):
+    fqdn = models.CharField(max_length=255, db_index=True)
+    source_port = models.IntegerField()
+    destination_port = models.CharField(max_length=20)  # supports both single and multiple as string
+
+    def __str__(self):
+        return f"{self.fqdn}:{self.source_port} -> {self.destination_port}"
+
+
+import json
+from django.core.management.base import BaseCommand
+from core.models import FQDNPortMapping
+
+class Command(BaseCommand):
+    help = "Load FQDN to Port Mappings from JSON"
+
+    def add_arguments(self, parser):
+        parser.add_argument("json_file", type=str)
+
+    def handle(self, *args, **kwargs):
+        with open(kwargs["json_file"], "r") as file:
+            data = json.load(file)
+
+        FQDNPortMapping.objects.all().delete()
+
+        for fqdn, ports_dict in data.items():
+            for source_port, dest_port in ports_dict.items():
+                if isinstance(dest_port, list):
+                    for port in dest_port:
+                        FQDNPortMapping.objects.create(
+                            fqdn=fqdn,
+                            source_port=int(source_port),
+                            destination_port=str(port),
+                        )
+                else:
+                    FQDNPortMapping.objects.create(
+                        fqdn=fqdn,
+                        source_port=int(source_port),
+                        destination_port=str(dest_port),
+                    )
+        self.stdout.write(self.style.SUCCESS("FQDN Ports loaded successfully"))
+
+
+from rest_framework import serializers
+from core.models import FQDNPortMapping
+
+class FQDNPortMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FQDNPortMapping
+        fields = ['fqdn', 'source_port', 'destination_port']
+
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from core.models import FQDNPortMapping
+from core.serializers import FQDNPortMappingSerializer
+
+@api_view(['GET'])
+def fqdn_search(request):
+    fqdn = request.query_params.get("fqdn")
+    if fqdn:
+        records = FQDNPortMapping.objects.filter(fqdn__icontains=fqdn)
+        serializer = FQDNPortMappingSerializer(records, many=True)
+        return Response(serializer.data)
+    return Response({"error": "Please provide a 'fqdn' query parameter."}, status=400)
+
+
+from django.urls import path
+from core.views import fqdn_search
+
+urlpatterns = [
+    path('api/search/', fqdn_search, name='fqdn-search'),
+]
