@@ -1,75 +1,127 @@
-from django.db import models
+import React, { useEffect, useState } from 'react';
+import { Button, Form, Input, Select, Table, Card, Row, Col, message } from 'antd';
+import axios from 'axios';
+import Fqdn from '../Fqdn';
 
-class FQDNPortMapping(models.Model):
-    fqdn = models.CharField(max_length=255, db_index=True)
-    source_port = models.IntegerField()
-    destination_port = models.CharField(max_length=20)  # supports both single and multiple as string
+const { Option } = Select;
 
-    def __str__(self):
-        return f"{self.fqdn}:{self.source_port} -> {self.destination_port}"
+const Home = () => {
+  const [form] = Form.useForm();
+  const [step, setStep] = useState(1);
+  const [fqdn, setFqdn] = useState('');
+  const [port, setPort] = useState('');
+  const [fqdnResults, setFqdnResults] = useState({});
+  const [selectedFqdn, setSelectedFqdn] = useState('');
+  const [sourcePorts, setSourcePorts] = useState([]);
+  const [destinationPorts, setDestinationPorts] = useState([]);
 
+  const handleSearch = async () => {
+    try {
+      const values = await form.validateFields();
+      setFqdn(values.fqdn);
+      const response = await axios.get(`/api/search/?fqdn=${values.fqdn}`);
+      setFqdnResults(response.data);
+      setStep(2);
+    } catch (err) {
+      message.error('Failed to fetch ports.');
+    }
+  };
 
-import json
-from django.core.management.base import BaseCommand
-from core.models import FQDNPortMapping
+  const handleFqdnChange = (fqdnKey) => {
+    setSelectedFqdn(fqdnKey);
+    const portMap = fqdnResults[fqdnKey];
+    const ports = Object.keys(portMap);
+    setSourcePorts(ports);
+    if (ports.length > 0) {
+      handleSourcePortSelect(ports[0]); // default select first
+    }
+  };
 
-class Command(BaseCommand):
-    help = "Load FQDN to Port Mappings from JSON"
+  const handleSourcePortSelect = (src) => {
+    const dest = fqdnResults[selectedFqdn][src];
+    setPort(src); // save selected source
+    const normalized = Array.isArray(dest) ? dest : [dest];
+    setDestinationPorts(normalized);
+  };
 
-    def add_arguments(self, parser):
-        parser.add_argument("json_file", type=str)
+  return (
+    <div style={{ padding: 40 }}>
+      {step === 1 && (
+        <Row justify="center">
+          <Col xs={24} sm={18} md={12}>
+            <Card bordered title="Compare Configuration (ECOM)" style={{ borderRadius: 8 }}>
+              <Form form={form} layout="vertical">
+                <Form.Item
+                  label="Enter FQDN"
+                  name="fqdn"
+                  rules={[{ required: true, message: 'Please input the FQDN!' }]}
+                >
+                  <Input placeholder="e.g. sdf.com" />
+                </Form.Item>
+                <Form.Item>
+                  <Button type="primary" block onClick={handleSearch}>
+                    Submit
+                  </Button>
+                </Form.Item>
+              </Form>
+            </Card>
+          </Col>
+        </Row>
+      )}
 
-    def handle(self, *args, **kwargs):
-        with open(kwargs["json_file"], "r") as file:
-            data = json.load(file)
+      {step === 2 && (
+        <div>
+          <Row gutter={16}>
+            <Col span={12}>
+              <h3>Select FQDN → Source Port</h3>
+              <Select
+                style={{ width: '100%', marginBottom: 20 }}
+                placeholder="Select FQDN"
+                onChange={handleFqdnChange}
+              >
+                {Object.keys(fqdnResults).map((fqdnKey) => (
+                  <Option key={fqdnKey} value={fqdnKey}>
+                    {fqdnKey}
+                  </Option>
+                ))}
+              </Select>
 
-        FQDNPortMapping.objects.all().delete()
+              <Select
+                style={{ width: '100%' }}
+                placeholder="Select Source Port"
+                onChange={handleSourcePortSelect}
+              >
+                {sourcePorts.map((src) => (
+                  <Option key={src} value={src}>
+                    {src}
+                  </Option>
+                ))}
+              </Select>
+            </Col>
 
-        for fqdn, ports_dict in data.items():
-            for source_port, dest_port in ports_dict.items():
-                if isinstance(dest_port, list):
-                    for port in dest_port:
-                        FQDNPortMapping.objects.create(
-                            fqdn=fqdn,
-                            source_port=int(source_port),
-                            destination_port=str(port),
-                        )
-                else:
-                    FQDNPortMapping.objects.create(
-                        fqdn=fqdn,
-                        source_port=int(source_port),
-                        destination_port=str(dest_port),
-                    )
-        self.stdout.write(self.style.SUCCESS("FQDN Ports loaded successfully"))
+            <Col span={12}>
+              <aside style={{ borderLeft: '2px solid #eee', paddingLeft: 20 }}>
+                <h4>Destination Ports</h4>
+                <ul>
+                  {destinationPorts.map((dest) => (
+                    <li key={dest}>{dest}</li>
+                  ))}
+                </ul>
+              </aside>
+            </Col>
+          </Row>
 
+          <Row justify="end" style={{ marginTop: 20 }}>
+            <Button type="primary" onClick={() => setStep(3)}>
+              OK
+            </Button>
+          </Row>
+        </div>
+      )}
 
-from rest_framework import serializers
-from core.models import FQDNPortMapping
+      {step === 3 && <Fqdn fqdn={fqdn} port={port} />}
+    </div>
+  );
+};
 
-class FQDNPortMappingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = FQDNPortMapping
-        fields = ['fqdn', 'source_port', 'destination_port']
-
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from core.models import FQDNPortMapping
-from core.serializers import FQDNPortMappingSerializer
-
-@api_view(['GET'])
-def fqdn_search(request):
-    fqdn = request.query_params.get("fqdn")
-    if fqdn:
-        records = FQDNPortMapping.objects.filter(fqdn__icontains=fqdn)
-        serializer = FQDNPortMappingSerializer(records, many=True)
-        return Response(serializer.data)
-    return Response({"error": "Please provide a 'fqdn' query parameter."}, status=400)
-
-
-from django.urls import path
-from core.views import fqdn_search
-
-urlpatterns = [
-    path('api/search/', fqdn_search, name='fqdn-search'),
-]
+export default Home;
