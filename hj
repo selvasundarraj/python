@@ -1,66 +1,117 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, Select, Table, Card, Row, Col, message } from 'antd';
+import React, { useState } from 'react';
+import {
+  Button,
+  Form,
+  Input,
+  Select,
+  Row,
+  Col,
+  Card,
+  message,
+} from 'antd';
 import axios from 'axios';
-import Fqdn from '../Fqdn';
+import Inventory from '../Inventory';
 
 const { Option } = Select;
 
 const Home = () => {
-  const [form] = Form.useForm();
   const [step, setStep] = useState(1);
   const [fqdn, setFqdn] = useState('');
-  const [port, setPort] = useState('');
+  const [selectedPort, setSelectedPort] = useState('');
+
+  const [form] = Form.useForm();
+  const [searchForm] = Form.useForm();
+
   const [fqdnResults, setFqdnResults] = useState({});
   const [selectedFqdn, setSelectedFqdn] = useState('');
   const [sourcePorts, setSourcePorts] = useState([]);
   const [destinationPorts, setDestinationPorts] = useState([]);
 
-  const handleSearch = async () => {
+  // Step 1 -> Step 2
+  const handleStep1Submit = () => setStep(2);
+
+  // Step 2 -> API fetch
+  const handleFqdnSearch = async () => {
     try {
-      const values = await form.validateFields();
+      const values = await searchForm.validateFields();
       setFqdn(values.fqdn);
-      const response = await axios.get(`/api/search/?fqdn=${values.fqdn}`);
-      setFqdnResults(response.data);
-      setStep(2);
-    } catch (err) {
-      message.error('Failed to fetch ports.');
+      const res = await axios.get(`/api/search/?fqdn=${values.fqdn}`);
+      setFqdnResults(res.data);
+      message.success('Lookup success');
+      setStep(3); // Move to step 3 once data is fetched
+    } catch (error) {
+      message.error('Lookup failed');
     }
   };
 
-  const handleFqdnChange = (fqdnKey) => {
+  const handleFqdnSelect = (fqdnKey) => {
     setSelectedFqdn(fqdnKey);
-    const portMap = fqdnResults[fqdnKey];
-    const ports = Object.keys(portMap);
+    const ports = Object.keys(fqdnResults[fqdnKey]);
     setSourcePorts(ports);
-    if (ports.length > 0) {
-      handleSourcePortSelect(ports[0]); // default select first
-    }
+    if (ports.length > 0) handleSourceSelect(ports[0]);
   };
 
-  const handleSourcePortSelect = (src) => {
+  const handleSourceSelect = (src) => {
+    setSelectedPort(src);
     const dest = fqdnResults[selectedFqdn][src];
-    setPort(src); // save selected source
-    const normalized = Array.isArray(dest) ? dest : [dest];
-    setDestinationPorts(normalized);
+    setDestinationPorts(Array.isArray(dest) ? dest : [dest]);
+  };
+
+  const handleStep3Ok = () => {
+    if (fqdn && selectedPort) {
+      setStep(4);
+    } else {
+      message.warning('Please select valid FQDN and port');
+    }
   };
 
   return (
     <div style={{ padding: 40 }}>
+      {/* Step 1 */}
       {step === 1 && (
+        <Form
+          form={form}
+          layout="Vertical"
+          labelAlign="center"
+          style={{
+            maxWidth: 500,
+            margin: '0 auto',
+            padding: 24,
+            border: '1px solid #eee',
+            borderRadius: 10,
+            background: '#fafafa',
+          }}
+        >
+          <Form.Item style={{ textAlign: 'center' }}>
+            <h3>Compare the Configuration ( ECOM )</h3>
+            <Button
+              type="primary"
+              htmlType="submit"
+              style={{ width: '100%', marginTop: 20 }}
+              onClick={handleStep1Submit}
+            >
+              Config Compare
+            </Button>
+          </Form.Item>
+        </Form>
+      )}
+
+      {/* Step 2 */}
+      {step === 2 && (
         <Row justify="center">
-          <Col xs={24} sm={18} md={12}>
-            <Card bordered title="Compare Configuration (ECOM)" style={{ borderRadius: 8 }}>
-              <Form form={form} layout="vertical">
+          <Col xs={24} sm={20} md={16}>
+            <Card title="FQDN Lookup">
+              <Form form={searchForm} layout="vertical" onFinish={handleFqdnSearch}>
                 <Form.Item
                   label="Enter FQDN"
                   name="fqdn"
-                  rules={[{ required: true, message: 'Please input the FQDN!' }]}
+                  rules={[{ required: true, message: 'Please input FQDN' }]}
                 >
                   <Input placeholder="e.g. sdf.com" />
                 </Form.Item>
                 <Form.Item>
-                  <Button type="primary" block onClick={handleSearch}>
-                    Submit
+                  <Button htmlType="submit" type="primary" block>
+                    Search
                   </Button>
                 </Form.Item>
               </Form>
@@ -69,57 +120,66 @@ const Home = () => {
         </Row>
       )}
 
-      {step === 2 && (
-        <div>
-          <Row gutter={16}>
-            <Col span={12}>
-              <h3>Select FQDN → Source Port</h3>
-              <Select
-                style={{ width: '100%', marginBottom: 20 }}
-                placeholder="Select FQDN"
-                onChange={handleFqdnChange}
-              >
-                {Object.keys(fqdnResults).map((fqdnKey) => (
-                  <Option key={fqdnKey} value={fqdnKey}>
-                    {fqdnKey}
-                  </Option>
-                ))}
-              </Select>
+      {/* Step 3: Show results fetched in Step 2 */}
+      {step === 3 && (
+        <Row justify="center">
+          <Col xs={24} sm={20} md={16}>
+            <Card title="Select Source and View Destinations">
+              <Form layout="vertical">
+                <Form.Item label="Matched FQDNs">
+                  <Select onChange={handleFqdnSelect} placeholder="Choose FQDN">
+                    {Object.keys(fqdnResults).map((fqdnKey) => (
+                      <Option key={fqdnKey} value={fqdnKey}>
+                        {fqdnKey}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
 
-              <Select
-                style={{ width: '100%' }}
-                placeholder="Select Source Port"
-                onChange={handleSourcePortSelect}
-              >
-                {sourcePorts.map((src) => (
-                  <Option key={src} value={src}>
-                    {src}
-                  </Option>
-                ))}
-              </Select>
-            </Col>
+                <Form.Item label="Source Port">
+                  <Select
+                    onChange={handleSourceSelect}
+                    value={selectedPort}
+                    placeholder="Select source port"
+                  >
+                    {sourcePorts.map((src) => (
+                      <Option key={src} value={src}>
+                        {src}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
 
-            <Col span={12}>
-              <aside style={{ borderLeft: '2px solid #eee', paddingLeft: 20 }}>
-                <h4>Destination Ports</h4>
-                <ul>
-                  {destinationPorts.map((dest) => (
-                    <li key={dest}>{dest}</li>
-                  ))}
-                </ul>
-              </aside>
-            </Col>
-          </Row>
+                <Form.Item label="Destination Ports">
+                  <aside
+                    style={{
+                      padding: '8px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: 6,
+                      background: '#fff',
+                    }}
+                  >
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                      {destinationPorts.map((dest) => (
+                        <li key={dest}>➡️ {dest}</li>
+                      ))}
+                    </ul>
+                  </aside>
+                </Form.Item>
 
-          <Row justify="end" style={{ marginTop: 20 }}>
-            <Button type="primary" onClick={() => setStep(3)}>
-              OK
-            </Button>
-          </Row>
-        </div>
+                <Form.Item>
+                  <Button type="primary" block onClick={handleStep3Ok}>
+                    OK
+                  </Button>
+                </Form.Item>
+              </Form>
+            </Card>
+          </Col>
+        </Row>
       )}
 
-      {step === 3 && <Fqdn fqdn={fqdn} port={port} />}
+      {/* Step 4 */}
+      {step === 4 && <Inventory fqdn={fqdn} port={selectedPort} />}
     </div>
   );
 };
