@@ -1,25 +1,6 @@
-DATABASES = {
-    'default': {
-        'ENGINE': 'mssql',
-        'NAME': 'your_database_name',
-        'USER': 'your_username',
-        'PASSWORD': 'your_password',
-        'HOST': 'your_sql_server_host',  # IP or domain
-        'PORT': '1433',  # Default MSSQL port
+SELECT COLUMN_NAME, DATA_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'your_table_name';
 
-        'OPTIONS': {
-            'driver': 'ODBC Driver 17 for SQL Server',
-            # Optional:
-            # 'extra_params': 'TrustServerCertificate=yes;',  # for self-signed certs
-        },
-    }
-}
-
-
-
-pip install mssql-django
-
-
-
-
-sudo apt install msodbcsql17
+ALTER TABLE your_table_name
+ALTER COLUMN vip nvarchar(max);
