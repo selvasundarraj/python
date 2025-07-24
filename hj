@@ -1,11 +1,25 @@
-from django.contrib import admin
-from .models import MyModel
+DATABASES = {
+    'default': {
+        'ENGINE': 'mssql',
+        'NAME': 'your_database_name',
+        'USER': 'your_username',
+        'PASSWORD': 'your_password',
+        'HOST': 'your_sql_server_host',  # IP or domain
+        'PORT': '1433',  # Default MSSQL port
 
-@admin.register(MyModel)
-class MyModelAdmin(admin.ModelAdmin):
-    actions = ['delete_all_entries']  # Register custom action
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server',
+            # Optional:
+            # 'extra_params': 'TrustServerCertificate=yes;',  # for self-signed certs
+        },
+    }
+}
 
-    @admin.action(description='Delete ALL entries')
-    def delete_all_entries(self, request, queryset):
-        MyModel.objects.all().delete()  # Deletes all entries in the model
-        self.message_user(request, "All entries deleted successfully.")
+
+
+pip install mssql-django
+
+
+
+
+sudo apt install msodbcsql17
