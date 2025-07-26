@@ -4,3 +4,9 @@ WHERE TABLE_NAME = 'your_table_name';
 
 ALTER TABLE your_table_name
 ALTER COLUMN vip nvarchar(max);
+
+
+
+class NVarcharMaxField(models.TextField):
+    def db_type(self, connection):
+        return 'nvarchar(max)'
